@@ -13,13 +13,13 @@ typedef struct {
     int tamanhoRegistro;     // 4 bytes: size of the record in bytes
     long long prox;  
     
-    int id;               // 4 bytes
-    int year;             // 4 bytes
-    float financialLoss;    // Changed from int to float
-    char country[256];        // Fixed-size array for 'country'
-    char attackType[256];     // Fixed-size array for 'attackType'
-    char targetIndustry[256]; // Fixed-size array for 'targetIndustry'
-    char defenseStrategy[256];// Fixed-size array for 'defenseStrategy'
+    int id;                  // 4 bytes
+    int year;                // 4 bytes
+    float financialLoss;     // Changed from int to float
+    char *country;           // Pointer for dynamically allocated 'country'
+    char *attackType;        // Pointer for dynamically allocated 'attackType'
+    char *targetIndustry;    // Pointer for dynamically allocated 'targetIndustry'
+    char *defenseStrategy;   // Pointer for dynamically allocated 'defenseStrategy'
 } Record;
 
 
@@ -117,10 +117,11 @@ void printRecord(Record record) {
     } else {
         printf("ANO EM QUE O ATAQUE OCORREU: NADA CONSTA\n");
     }
+    
 
-    printf("PAIS ONDE OCORREU O ATAQUE: %s\n", strlen(record.country) > 0 ? record.country : "NADA CONSTA");
-    printf("SETOR DA INDUSTRIA QUE SOFREU O ATAQUE: %s\n", strlen(record.targetIndustry) > 0 ? record.targetIndustry : "NADA CONSTA");
-    printf("TIPO DE AMEACA A SEGURANCA CIBERNETICA: %s\n", strlen(record.attackType) > 0 ? record.attackType : "NADA CONSTA");
+    printf("PAIS ONDE OCORREU O ATAQUE: %s\n", record.country && strlen(record.country) > 0 ? record.country : "NADA CONSTA");
+    printf("SETOR DA INDUSTRIA QUE SOFREU O ATAQUE: %s\n", record.targetIndustry && strlen(record.targetIndustry) > 0 ? record.targetIndustry : "NADA CONSTA");
+    printf("TIPO DE AMEACA A SEGURANCA CIBERNETICA: %s\n", record.attackType && strlen(record.attackType) > 0 ? record.attackType : "NADA CONSTA");
 
     if (record.financialLoss != -1.0f) {
         printf("PREJUIZO CAUSADO PELO ATAQUE: %.2f\n", record.financialLoss);
@@ -128,24 +129,10 @@ void printRecord(Record record) {
         printf("PREJUIZO CAUSADO PELO ATAQUE: NADA CONSTA\n");
     }
 
-    printf("ESTRATEGIA DE DEFESA CIBERNETICA EMPREGADA PARA RESOLVER O PROBLEMA: %s\n\n", strlen(record.defenseStrategy) > 0 ? record.defenseStrategy : "NADA CONSTA");
+    printf("ESTRATEGIA DE DEFESA CIBERNETICA EMPREGADA PARA RESOLVER O PROBLEMA: %s\n\n", record.defenseStrategy && strlen(record.defenseStrategy) > 0 ? record.defenseStrategy : "NADA CONSTA");
 }
 
-/**
- * Lê um campo do CSV, delimitado por vírgula.
- * 
- * @param field Ponteiro para o início do campo.
- * @param buffer Buffer onde o campo será armazenado.
- * @param maxSize Tamanho máximo do buffer.
- * @return Ponteiro para o próximo campo ou NULL se não houver mais campos.
- */
-char* readFieldFromCSV(char *field, char *buffer, size_t maxSize) {
-    char *next = strchr(field, ',');
-    if (next) *next = '\0';
-    strncpy(buffer, field ? field : "", maxSize - 1);
-    buffer[maxSize - 1] = '\0';
-    return next ? next + 1 : NULL;
-}
+
 
 void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o código dessa função. */
 
@@ -211,32 +198,18 @@ float safeStringToFloat(const char *str) {
     return value;
 }
 
-void generateBinaryFile(const char *inputFile, char *binaryFile) {
-    FILE *input = fopen(inputFile, "r");
-    if (!input) {
-        perror("Falha no processamento do arquivo.");
-        exit(EXIT_FAILURE);
-    }
-
-    FILE *output = fopen(binaryFile, "wb+"); // Open in read/write mode
-    if (!output) {
-        perror("Falha no processamento do arquivo.");
-        fclose(input);
-        exit(EXIT_FAILURE);
-    }
-
-    // Escreve o cabeçalho no arquivo binário
+/**
+ * Inicializa e escreve o cabeçalho no arquivo binário.
+ * @param output Ponteiro para o arquivo binário.
+ * @return O cabeçalho inicializado.
+ */
+Header initializeAndWriteHeader(FILE *output) {
     Header header;
     header.status = '0'; // Arquivo inconsistente ao abrir
     header.topo = -1;    // Nenhum registro logicamente removido
     header.proxByteOffset = 276; // Inicialmente após o cabeçalho
     header.nroRegArq = 0; // Nenhum registro não removido inicialmente
     header.nroRegRem = 0; // Nenhum registro logicamente removido inicialmente
-    fwrite(&header.status, sizeof(char), 1, output);
-    fwrite(&header.topo, sizeof(long long), 1, output);
-    fwrite(&header.proxByteOffset, sizeof(long long), 1, output);
-    fwrite(&header.nroRegArq, sizeof(int), 1, output);
-    fwrite(&header.nroRegRem, sizeof(int), 1, output);
 
     // Preenche os campos de descrição com valores fixos
     strncpy(header.descreveIdentificador, "IDENTIFICADOR DO ATAQUE", sizeof(header.descreveIdentificador));
@@ -251,7 +224,12 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
     strncpy(header.codDescreveDefense, "4", sizeof(header.codDescreveDefense));
     strncpy(header.descreveDefense, "ESTRATEGIA DE DEFESA CIBERNETICA EMPREGADA PARA RESOLVER O PROBLEMA", sizeof(header.descreveDefense));
 
-    // Grava os campos de descrição
+    // Escreve os campos do cabeçalho no arquivo binário
+    fwrite(&header.status, sizeof(char), 1, output);
+    fwrite(&header.topo, sizeof(long long), 1, output);
+    fwrite(&header.proxByteOffset, sizeof(long long), 1, output);
+    fwrite(&header.nroRegArq, sizeof(int), 1, output);
+    fwrite(&header.nroRegRem, sizeof(int), 1, output);
     fwrite(header.descreveIdentificador, sizeof(header.descreveIdentificador), 1, output);
     fwrite(header.descreveYear, sizeof(header.descreveYear), 1, output);
     fwrite(header.descreveFinancialLoss, sizeof(header.descreveFinancialLoss), 1, output);
@@ -263,6 +241,25 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
     fwrite(header.descreveTargetIndustry, sizeof(header.descreveTargetIndustry), 1, output);
     fwrite(header.codDescreveDefense, sizeof(header.codDescreveDefense), 1, output);
     fwrite(header.descreveDefense, sizeof(header.descreveDefense), 1, output);
+
+    return header;
+}
+
+
+void generateBinaryFile(const char *inputFile, char *binaryFile) {
+    FILE *input = fopen(inputFile, "r");
+    if (!input) {
+        perror("Falha no processamento do arquivo.");
+    }
+
+    FILE *output = fopen(binaryFile, "wb+");
+    if (!output) {
+        perror("Falha no processamento do arquivo.");
+        fclose(input);
+    }
+
+    // Inicializa e escreve o cabeçalho
+    Header header = initializeAndWriteHeader(output);
 
     // Preenche o restante do cabeçalho até 276 bytes com '\0'
     long long currentOffset = ftell(output);
@@ -284,8 +281,14 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
     int recordCount = 0;
 
     while (!feof(input)) {
-        // Declare and initialize variableFieldsSize
-        int variableFieldsSize = 0;
+        // Initialize record fields
+        record.id = -1;
+        record.year = -1; // Sentinel value for empty year
+        record.financialLoss = -1.0f; // Sentinel value for empty financialLoss
+        record.country = NULL;
+        record.attackType = NULL;
+        record.targetIndustry = NULL;
+        record.defenseStrategy = NULL;
 
         // Reinitialize fields for each record
         char field[7][MAX_FIELD] = {0};
@@ -299,27 +302,51 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
         record.id = strlen(field[0]) > 0 ? atoi(field[0]) : -1;
         record.year = strlen(field[1]) > 0 ? atoi(field[1]) : -1;
         record.financialLoss = strlen(field[2]) > 0 ? safeStringToFloat(field[2]) : -1.0f;
-        strncpy(record.country, strlen(field[3]) > 0 ? field[3] : "", sizeof(record.country) - 1);
-        strncpy(record.attackType, strlen(field[4]) > 0 ? field[4] : "", sizeof(record.attackType) - 1);
-        strncpy(record.targetIndustry, strlen(field[5]) > 0 ? field[5] : "", sizeof(record.targetIndustry) - 1);
-        strncpy(record.defenseStrategy, strlen(field[6]) > 0 ? field[6] : "", sizeof(record.defenseStrategy) - 1);
+
+        if (strlen(field[3]) > 0) {
+            record.country = malloc(strlen(field[3]));
+            strcpy(record.country, field[3]);
+        }
+
+        if (strlen(field[4]) > 0) {
+            record.attackType = malloc(strlen(field[4]));
+            strcpy(record.attackType, field[4]);
+        }
+
+        if (strlen(field[5]) > 0) {
+            record.targetIndustry = malloc(strlen(field[5]));
+            strcpy(record.targetIndustry, field[5]);
+        }
+
+        if (strlen(field[6]) > 0) {
+            record.defenseStrategy = malloc(strlen(field[6]));
+            strcpy(record.defenseStrategy, field[6]);
+        }
 
         record.removido = '0';
         record.prox = -1;
-        // Adjust size for non-empty variable fields
-        if (strlen(record.country) > 0) variableFieldsSize += 2;
-        if (strlen(record.attackType) > 0) variableFieldsSize += 2;
-        if (strlen(record.targetIndustry) > 0) variableFieldsSize += 2;
-        if (strlen(record.defenseStrategy) > 0) variableFieldsSize += 2;
 
         // Calculate record size
-        variableFieldsSize += strlen(record.country) + strlen(record.attackType) +
-                              strlen(record.targetIndustry) + strlen(record.defenseStrategy) -4;
+        int variableFieldsSize = 0;
+
+        if (record.country) {
+            variableFieldsSize += strlen(record.country) + 2; // +1 for delimiter '|'
+        }
+        if (record.attackType) {
+            variableFieldsSize += strlen(record.attackType) + 2; // +1 for delimiter '|'
+        }
+        if (record.targetIndustry) {
+            variableFieldsSize += strlen(record.targetIndustry) + 2; // +1 for delimiter '|'
+        }
+        if (record.defenseStrategy) {
+            variableFieldsSize += strlen(record.defenseStrategy) + 2; // +1 for delimiter '|'
+        }
+
         int fixedFieldsSize = sizeof(record.tamanhoRegistro) +
                               sizeof(record.prox) + sizeof(record.id) + sizeof(record.year) +
                               sizeof(record.financialLoss);
-        
-        record.tamanhoRegistro = fixedFieldsSize + variableFieldsSize;
+
+        record.tamanhoRegistro = fixedFieldsSize + variableFieldsSize -4;
 
         // Write record to binary file
         fwrite(&record.removido, sizeof(char), 1, output);
@@ -348,6 +375,12 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
         writeVariableArray(output, record.defenseStrategy, index);
 
         recordCount++;
+
+        // Free dynamically allocated memory
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
 
         // Update header values
         header.nroRegArq++;
@@ -385,6 +418,50 @@ void adjustValue(char *value) {
 }
 
 /**
+ * Lê um registro completo de um arquivo binário.
+ * @param file Ponteiro para o arquivo binário.
+ * @param record Ponteiro para o registro onde os dados serão armazenados.
+ * @return 1 se o registro foi lido com sucesso, 0 caso contrário.
+ */
+int readRecord(FILE *file, Record *record) {
+    if (fread(&record->removido, sizeof(char), 1, file) != 1 ||
+        fread(&record->tamanhoRegistro, sizeof(int), 1, file) != 1 ||
+        fread(&record->prox, sizeof(long long), 1, file) != 1 ||
+        fread(&record->id, sizeof(int), 1, file) != 1) {
+        return 0; // Falha ao ler os campos fixos
+    }
+
+    // Handle year field
+    long long currentPosition = ftell(file);
+    if (fread(&record->year, sizeof(int), 1, file) != 1) {
+        record->year = -1; // Set sentinel value if field is empty
+        fseek(file, currentPosition + sizeof(int), SEEK_SET); // Skip 4 bytes
+    }
+
+    // Handle financialLoss field
+    currentPosition = ftell(file);
+    if (fread(&record->financialLoss, sizeof(float), 1, file) != 1) {
+        record->financialLoss = -1.0f; // Set sentinel value if field is empty
+        fseek(file, currentPosition + sizeof(float), SEEK_SET); // Skip 4 bytes
+    }
+
+    // Allocate memory for variable fields
+    record->country = malloc(256);
+    record->attackType = malloc(256);
+    record->targetIndustry = malloc(256);
+    record->defenseStrategy = malloc(256);
+
+    // Read variable fields
+    int index = 1;
+    readVariableArray(file, record->country, index++);
+    readVariableArray(file, record->attackType, index++);
+    readVariableArray(file, record->targetIndustry, index++);
+    readVariableArray(file, record->defenseStrategy, index++);
+
+    return 1; // Sucesso
+}
+
+/**
  * @brief Imprime todos os registros de um arquivo binário até encontrar um ID especificado.
  *
  * Esta função lê registros sequencialmente de um arquivo binário e imprime seus detalhes
@@ -412,26 +489,17 @@ void printAllUntilId(const char *binaryFile) {
     Record record;
 
     // Percorre o arquivo sequencialmente
-    while (fread(&record.removido, sizeof(char), 1, file) == 1) {
-        if (fread(&record.tamanhoRegistro, sizeof(int), 1, file) != 1 ||
-            fread(&record.prox, sizeof(long long), 1, file) != 1 ||
-            fread(&record.id, sizeof(int), 1, file) != 1 ||
-            fread(&record.year, sizeof(int), 1, file) != 1 ||
-            fread(&record.financialLoss, sizeof(float), 1, file) != 1) {
-            printf("Falha no processamento do arquivo.\n");
-            break;
-        }
-
-        int index = 1;
-        readVariableArray(file, record.country, index++);
-        readVariableArray(file, record.attackType, index++);
-        readVariableArray(file, record.targetIndustry, index++);
-        readVariableArray(file, record.defenseStrategy, index++);
-
+    while (readRecord(file, &record)) {
         // Imprime o registro
         if (record.removido == '0') {
             printRecord(record);
         }
+
+        // Libera a memória alocada
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
     }
 
     fclose(file);
@@ -466,34 +534,7 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
 
     Record record;
 
-    while (fread(&record.removido, sizeof(char), 1, file) == 1) {
-        if (fread(&record.tamanhoRegistro, sizeof(int), 1, file) != 1 ||
-            fread(&record.prox, sizeof(long long), 1, file) != 1 ||
-            fread(&record.id, sizeof(int), 1, file) != 1) {
-            printf("Falha no processamento do arquivo.\n");
-            break;
-        }
-
-        // Handle year field
-        long long currentPosition = ftell(file);
-        if (fread(&record.year, sizeof(int), 1, file) != 1) {
-            record.year = -1; // Set sentinel value if field is empty
-            fseek(file, currentPosition + sizeof(int), SEEK_SET); // Skip 4 bytes
-        }
-
-        // Handle financialLoss field
-        currentPosition = ftell(file);
-        if (fread(&record.financialLoss, sizeof(float), 1, file) != 1) {
-            record.financialLoss = -1.0f; // Set sentinel value if field is empty
-            fseek(file, currentPosition + sizeof(float), SEEK_SET); // Skip 4 bytes
-        }
-
-        int index = 1;
-        readVariableArray(file, record.country, index++);
-        readVariableArray(file, record.attackType, index++);
-        readVariableArray(file, record.targetIndustry, index++);
-        readVariableArray(file, record.defenseStrategy, index++);
-
+    while (readRecord(file, &record)) {
         // Verifica os critérios
         int matchCount = 0;
         for (int i = 0; i < numCriteria; i++) {
@@ -523,6 +564,12 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
         if (matchCount == numCriteria && record.removido == '0') {
             printRecord(record);
         }
+
+        // Libera a memória alocada
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
     }
 
     fclose(file);
