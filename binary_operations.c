@@ -218,24 +218,24 @@ void printAllUntilId(const char *binaryFile) {
  * with the target value. If a match is found, the function returns the index of the
  * matching element. If no match is found after checking all elements, it returns -1.
  */
-void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
+int sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
     FILE *file = fopen(binaryFile, "rb");
     if (!file) {
         printf("Falha no processamento do arquivo.\n");
-        return; // Stop processing and return to the main menu
+        return -1; // Indicate processing failure
     }
 
     // Pula os primeiros 276 bytes (cabeçalho)
     if (fseek(file, 276, SEEK_SET) != 0) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        return;
+        return 0; // Indicate no results found
     }
 
     Record record;
+    int found = 0; // Flag to track if any record matches
 
     while (readRecord(file, &record)) {
-        // Verifica os critérios
         int matchCount = 0;
         for (int i = 0; i < numCriteria; i++) {
             char adjustedValue[256];
@@ -254,22 +254,26 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
                 matchCount++;
             } else if (strcasecmp(criteria[i], "targetIndustry") == 0 && strcasecmp(record.targetIndustry, adjustedValue) == 0) {
                 matchCount++;
-            } else if (strcasecmp(criteria[i], "defenseMechanism") == 0 && strcasecmp(record.defenseStrategy, adjustedValue) == 0) {
+            } else if (strcasecmp(criteria[i], "defenseMechanism") == 0 && record.defenseStrategy != NULL && strcasecmp(record.defenseStrategy, adjustedValue) == 0) {
                 matchCount++;
             }
         }
 
-        // Imprime o registro se todos os critérios forem atendidos
         if (matchCount == numCriteria && record.removido == '0') {
             printRecord(record);
+            found = 1; // Mark that a record was found
         }
 
-        // Libera a memória alocada
         free(record.country);
         free(record.attackType);
         free(record.targetIndustry);
         free(record.defenseStrategy);
     }
 
+    if (found == 1) {
+        printf("**********\n");
+    }
+
     fclose(file);
+    return found; // Return whether any records matched
 }

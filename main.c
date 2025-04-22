@@ -30,6 +30,7 @@ void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o 
 		cs += (unsigned long) mb[i];
 	}
 	printf("%lf\n", (cs / (double) 100));
+	fflush(stdout); // Força a limpeza do buffer de saída
 	free(mb);
 	fclose(fs);
 }
@@ -46,13 +47,16 @@ int main() {
                 scanf("%s", inputFile);
                 scanf("%s", binaryFile);
                 if (generateBinaryFile(inputFile, binaryFile) == 0) { // Check for success
-                    binarioNaTela(binaryFile);
+                    binarioNaTela(binaryFile); // Call binarioNaTela only once
                 }
+                return 0; // Fecha o programa
                 break;
 
             case 2:
                 scanf("%s", binaryFile);
                 printAllUntilId(binaryFile);
+                fflush(stdout); // Força a limpeza do buffer de saída
+                return 0; // Fecha o programa
                 break;
 
             case 3: {
@@ -61,38 +65,55 @@ int main() {
                 int repeatCount;
                 scanf("%d", &repeatCount);
 
-                for (int r = 0; r < repeatCount; r++) {
+                int foundAny = 0; // Flag to track if any search produces results
+                int processingFailed = 0; // Flag to track if processing failed
 
+                for (int r = 0; r < repeatCount; r++) {
                     int numCriteria;
                     scanf("%d", &numCriteria);
 
                     char criteria[3][256];
                     char values[3][256];
                     for (int i = 0; i < numCriteria; i++) {
-                        
                         scanf("%s", criteria[i]);
                         if (strcmp(criteria[i], "country") == 0 || 
                             strcmp(criteria[i], "targetIndustry") == 0 || 
-                            strcmp(criteria[i], "defenseStrategy") == 0 || 
+                            strcmp(criteria[i], "defenseMechanism") == 0 || 
                             strcmp(criteria[i], "attackType") == 0) {
                             scan_quote_string(values[i]);
-
                         } else {
                             scanf("%s", values[i]);
                         }
                     }
 
-                    sequentialSearch(binaryFile, numCriteria, criteria, values);
-                    printf("**********");
+                    int found = sequentialSearch(binaryFile, numCriteria, criteria, values);
+                    if (found == -1) { // Indicate processing failure
+                        processingFailed = 1;
+                        break;
+                    }
+                    if (found) {
+                        foundAny = 1; // Mark that at least one result was found
+                    }
+                    fflush(stdout); // Força a limpeza do buffer de saída
                 }
+
+                if (!processingFailed && !foundAny) {
+                    printf("Registro inexistente.\n\n");
+                    printf("**********\n");
+                }
+
+                return 0; // Fecha o programa
                 break;
             }
 
             case 4:
+                return 0; // Fecha o programa
                 break;
 
             default:
                 printf("Invalid choice. Please try again.\n");
+                fflush(stdout); // Força a limpeza do buffer de saída
+                return 0; // Fecha o programa
         }
     } while (option != 4);
 
