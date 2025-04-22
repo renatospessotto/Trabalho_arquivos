@@ -4,28 +4,22 @@
 #include <string.h> // Added to fix strncpy and strcasecmp warnings
 #include <math.h>   // Added to fix fabs warnings
 
-void generateBinaryFile(const char *inputFile, char *binaryFile) {
+int generateBinaryFile(const char *inputFile, char *binaryFile) {
     FILE *input = fopen(inputFile, "r");
     if (!input) {
-        perror("Falha no processamento do arquivo.");
+        printf("Falha no processamento do arquivo.\n");
+        return -1; // Indicate failure
     }
 
     FILE *output = fopen(binaryFile, "wb+");
     if (!output) {
-        perror("Falha no processamento do arquivo.");
+        printf("Falha no processamento do arquivo.\n");
         fclose(input);
+        return -1; // Indicate failure
     }
 
     // Inicializa e escreve o cabeçalho
     Header header = initializeAndWriteHeader(output);
-
-    // Preenche o restante do cabeçalho até 276 bytes com '\0'
-    long long currentOffset = ftell(output);
-    if (currentOffset < 276) {
-        char padding[276 - currentOffset];
-        memset(padding, '\0', sizeof(padding));
-        fwrite(padding, sizeof(char), sizeof(padding), output);
-    }
 
     // Pula a primeira linha do CSV (cabeçalho)
     char c;
@@ -53,11 +47,17 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
 
         // Read fields using read_field
         for (int i = 0; i < 7; i++) {
+           
             if (!read_field(input, field[i])) break;
         }
 
-        // Assign values to record fields
         record.id = strlen(field[0]) > 0 ? atoi(field[0]) : -1;
+        if (record.id == -1) {
+            break; // Stop processing if the id field is empty
+        }
+
+        // Assign values to record fields
+        
         record.year = strlen(field[1]) > 0 ? atoi(field[1]) : -1;
         record.financialLoss = strlen(field[2]) > 0 ? safeStringToFloat(field[2]) : -1.0f;
 
@@ -158,6 +158,7 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
 
     fclose(input);
     fclose(output);
+    return 0; // Indicate success
 }
 
 
@@ -175,13 +176,13 @@ void generateBinaryFile(const char *inputFile, char *binaryFile) {
 void printAllUntilId(const char *binaryFile) {
     FILE *file = fopen(binaryFile, "rb");
     if (!file) {
-        perror("Registro inexistente.");
-        return;
+        printf("Falha no processamento do arquivo.\n");
+        return; // Stop processing and return to the main menu
     }
 
     // Pula os primeiros 276 bytes (cabeçalho)
     if (fseek(file, 276, SEEK_SET) != 0) {
-        perror("Falha no processamento do arquivo.");
+        printf("Falha no processamento do arquivo.\n");
         fclose(file);
         return;
     }
@@ -220,13 +221,13 @@ void printAllUntilId(const char *binaryFile) {
 void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
     FILE *file = fopen(binaryFile, "rb");
     if (!file) {
-        perror("Registro inexistente.");
-        return;
+        printf("Falha no processamento do arquivo.\n");
+        return; // Stop processing and return to the main menu
     }
 
     // Pula os primeiros 276 bytes (cabeçalho)
     if (fseek(file, 276, SEEK_SET) != 0) {
-        perror("Falha no processamento do arquivo.");
+        printf("Falha no processamento do arquivo.\n");
         fclose(file);
         return;
     }

@@ -25,3 +25,7 @@ binary_operations.o: binary_operations.c binary_operations.h
 
 clean:
 	rm -f $(OBJ) $(TARGET)
+
+run: $(TARGET)
+	chmod +x $(TARGET) # Ensure the executable has the correct permissions
+	./$(TARGET)

@@ -39,56 +39,43 @@ int main() {
     char inputFile[100], binaryFile[100];
 
     do {
-        printf("\nMenu:\n");
-        printf("1. Generate binary file from CSV\n");
-        printf("2. Print all records and header\n");
-        printf("3. Search for a record by criteria\n");
-        printf("4. Exit\n");
-        printf("Enter your choice: ");
         scanf("%d", &option);
 
         switch (option) {
             case 1:
                 scanf("%s", inputFile);
                 scanf("%s", binaryFile);
-                generateBinaryFile(inputFile, binaryFile);
-                binarioNaTela(binaryFile);
+                if (generateBinaryFile(inputFile, binaryFile) == 0) { // Check for success
+                    binarioNaTela(binaryFile);
+                }
                 break;
 
             case 2:
-                printf("Enter the name of the binary file: ");
                 scanf("%s", binaryFile);
                 printAllUntilId(binaryFile);
                 break;
 
             case 3: {
-                printf("Enter the name of the binary file: ");
                 scanf("%s", binaryFile);
 
                 int repeatCount;
-                printf("Enter the number of times to repeat the search: ");
                 scanf("%d", &repeatCount);
 
                 for (int r = 0; r < repeatCount; r++) {
-                    printf("Search iteration %d:\n", r + 1);
 
                     int numCriteria;
-                    printf("Enter the number of criteria (1-3): ");
                     scanf("%d", &numCriteria);
 
                     char criteria[3][256];
                     char values[3][256];
                     for (int i = 0; i < numCriteria; i++) {
-                        printf("MERDA");
-
-                        printf("Enter criteria %d: ", i + 1);
+                        
                         scanf("%s", criteria[i]);
                         if (strcmp(criteria[i], "country") == 0 || 
                             strcmp(criteria[i], "targetIndustry") == 0 || 
                             strcmp(criteria[i], "defenseStrategy") == 0 || 
                             strcmp(criteria[i], "attackType") == 0) {
                             scan_quote_string(values[i]);
-                            printf("merda");
 
                         } else {
                             scanf("%s", values[i]);
@@ -96,6 +83,7 @@ int main() {
                     }
 
                     sequentialSearch(binaryFile, numCriteria, criteria, values);
+                    printf("**********");
                 }
                 break;
             }
