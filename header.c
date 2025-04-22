@@ -1,6 +1,15 @@
 #include "header.h"
 #include <string.h>
 
+/**
+ * @brief Inicializa e escreve o cabeçalho em um arquivo binário.
+ *
+ * Esta função cria uma estrutura de cabeçalho, inicializa seus campos e escreve no
+ * início de um arquivo binário.
+ *
+ * @param output Ponteiro para o arquivo binário.
+ * @return A estrutura de cabeçalho inicializada.
+ */
 Header initializeAndWriteHeader(FILE *output) {
     Header header;
     header.status = '0';
@@ -39,4 +48,22 @@ Header initializeAndWriteHeader(FILE *output) {
     fwrite(header.descreveDefense, sizeof(header.descreveDefense), 1, output);
 
     return header;
+}
+
+/**
+ * @brief Atualiza o cabeçalho de um arquivo binário.
+ *
+ * Esta função atualiza os campos do cabeçalho em um arquivo binário, marcando-o como consistente.
+ *
+ * @param output Ponteiro para o arquivo binário.
+ * @param header Ponteiro para a estrutura de cabeçalho a ser atualizada.
+ */
+void updateHeader(FILE *output, Header *header) {
+    fseek(output, 0, SEEK_SET);
+    header->status = '1'; // Arquivo consistente ao finalizar
+    fwrite(&header->status, sizeof(char), 1, output);
+    fwrite(&header->topo, sizeof(long long), 1, output);
+    fwrite(&header->proxByteOffset, sizeof(long long), 1, output);
+    fwrite(&header->nroRegArq, sizeof(int), 1, output);
+    fwrite(&header->nroRegRem, sizeof(int), 1, output);
 }

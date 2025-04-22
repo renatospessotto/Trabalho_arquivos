@@ -1,81 +1,65 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <math.h> // Adicionado para corrigir o uso de fabs
+#include <math.h> // Incluído para corrigir o uso de fabs
 #include "binary_operations.h"
 #include "utils.h"
 
-
-void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o código dessa função. */
-
-	/* Use essa função para comparação no run.codes. Lembre-se de ter fechado (fclose) o arquivo anteriormente.
-	*  Ela vai abrir de novo para leitura e depois fechar (você não vai perder pontos por isso se usar ela). */
-
-	unsigned long i, cs;
-	unsigned char *mb;
-	size_t fl;
-	FILE *fs;
-	if(nomeArquivoBinario == NULL || !(fs = fopen(nomeArquivoBinario, "rb"))) {
-		fprintf(stderr, "ERRO AO ESCREVER O BINARIO NA TELA (função binarioNaTela): não foi possível abrir o arquivo que me passou para leitura. Ele existe e você tá passando o nome certo? Você lembrou de fechar ele com fclose depois de usar?\n");
-		return;
-	}
-	fseek(fs, 0, SEEK_END);
-	fl = ftell(fs);
-	fseek(fs, 0, SEEK_SET);
-	mb = (unsigned char *) malloc(fl);
-	fread(mb, 1, fl, fs);
-
-	cs = 0;
-	for(i = 0; i < fl; i++) {
-		cs += (unsigned long) mb[i];
-	}
-	printf("%lf\n", (cs / (double) 100));
-	fflush(stdout); // Força a limpeza do buffer de saída
-	free(mb);
-	fclose(fs);
-}
-
+/**
+ * @brief Função principal para lidar com a entrada do usuário e executar opções.
+ *
+ * Esta função fornece uma interface baseada em menu para o usuário interagir com
+ * o programa. Ela lida com opções como gerar arquivos binários, imprimir registros
+ * e realizar buscas.
+ *
+ * @return 0 em caso de execução bem-sucedida.
+ */
 int main() {
-    int option;
-    char inputFile[100], binaryFile[100];
+    int option; // Armazena a opção escolhida pelo usuário
+    char inputFile[100], binaryFile[100]; // Armazena os nomes dos arquivos de entrada e binário
 
     do {
+        // Lê a opção escolhida pelo usuário
         scanf("%d", &option);
 
         switch (option) {
             case 1:
+                // Opção 1: Gera um arquivo binário a partir de um arquivo CSV
                 scanf("%s", inputFile);
                 scanf("%s", binaryFile);
-                if (generateBinaryFile(inputFile, binaryFile) == 0) { // Check for success
-                    binarioNaTela(binaryFile); // Call binarioNaTela only once
+                if (generateBinaryFile(inputFile, binaryFile) == 0) { // Verifica sucesso
+                    binarioNaTela(binaryFile); // Exibe o conteúdo do arquivo binário
                 }
-                return 0; // Fecha o programa
+                return 0; // Encerra o programa
                 break;
 
             case 2:
+                // Opção 2: Imprime todos os registros de um arquivo binário
                 scanf("%s", binaryFile);
                 printAllUntilId(binaryFile);
-                fflush(stdout); // Força a limpeza do buffer de saída
-                return 0; // Fecha o programa
+                fflush(stdout); // Garante que a saída seja exibida imediatamente
+                return 0; // Encerra o programa
                 break;
 
             case 3: {
+                // Opção 3: Realiza buscas sequenciais no arquivo binário
                 scanf("%s", binaryFile);
 
-                int repeatCount;
+                int repeatCount; // Número de buscas a serem realizadas
                 scanf("%d", &repeatCount);
 
-                int foundAny = 0; // Flag to track if any search produces results
-                int processingFailed = 0; // Flag to track if processing failed
+                int foundAny = 0; // Flag para indicar se algum registro foi encontrado
+                int processingFailed = 0; // Flag para indicar falha no processamento
 
                 for (int r = 0; r < repeatCount; r++) {
-                    int numCriteria;
+                    int numCriteria; // Número de critérios de busca
                     scanf("%d", &numCriteria);
 
-                    char criteria[3][256];
-                    char values[3][256];
+                    char criteria[3][256]; // Armazena os nomes dos critérios
+                    char values[3][256]; // Armazena os valores dos critérios
                     for (int i = 0; i < numCriteria; i++) {
                         scanf("%s", criteria[i]);
+                        // Verifica se o critério é uma string e lê o valor entre aspas
                         if (strcmp(criteria[i], "country") == 0 || 
                             strcmp(criteria[i], "targetIndustry") == 0 || 
                             strcmp(criteria[i], "defenseMechanism") == 0 || 
@@ -86,34 +70,38 @@ int main() {
                         }
                     }
 
+                    // Realiza a busca sequencial com os critérios fornecidos
                     int found = sequentialSearch(binaryFile, numCriteria, criteria, values);
-                    if (found == -1) { // Indicate processing failure
+                    if (found == -1) { // Indica falha no processamento
                         processingFailed = 1;
                         break;
                     }
                     if (found) {
-                        foundAny = 1; // Mark that at least one result was found
+                        foundAny = 1; // Marca que pelo menos um registro foi encontrado
                     }
-                    fflush(stdout); // Força a limpeza do buffer de saída
+                    fflush(stdout); // Garante que a saída seja exibida imediatamente
                 }
 
+                // Exibe mensagem caso nenhum registro seja encontrado
                 if (!processingFailed && !foundAny) {
                     printf("Registro inexistente.\n\n");
                     printf("**********\n");
                 }
 
-                return 0; // Fecha o programa
+                return 0; // Encerra o programa
                 break;
             }
 
             case 4:
-                return 0; // Fecha o programa
+                // Opção 4: Encerra o programa
+                return 0;
                 break;
 
             default:
+                // Opção inválida
                 printf("Invalid choice. Please try again.\n");
-                fflush(stdout); // Força a limpeza do buffer de saída
-                return 0; // Fecha o programa
+                fflush(stdout); // Garante que a saída seja exibida imediatamente
+                return 0; // Encerra o programa
         }
     } while (option != 4);
 

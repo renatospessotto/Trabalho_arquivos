@@ -5,6 +5,52 @@
 #include <stdio.h> // Added to fix FILE type error
 
 
+/**
+ * @brief Exibe o conteúdo de um arquivo binário na tela.
+ *
+ * Esta função lê o arquivo binário e imprime seu conteúdo em um formato específico.
+ * Ela é usada para depuração e comparação.
+ *
+ * @param nomeArquivoBinario O nome do arquivo binário a ser exibido.
+ */
+ void binarioNaTela(char *nomeArquivoBinario) { /* Você não precisa entender o código dessa função. */
+
+	/* Use essa função para comparação no run.codes. Lembre-se de ter fechado (fclose) o arquivo anteriormente.
+	*  Ela vai abrir de novo para leitura e depois fechar (você não vai perder pontos por isso se usar ela). */
+
+	unsigned long i, cs;
+	unsigned char *mb;
+	size_t fl;
+	FILE *fs;
+	if(nomeArquivoBinario == NULL || !(fs = fopen(nomeArquivoBinario, "rb"))) {
+		fprintf(stderr, "ERRO AO ESCREVER O BINARIO NA TELA (função binarioNaTela): não foi possível abrir o arquivo que me passou para leitura. Ele existe e você tá passando o nome certo? Você lembrou de fechar ele com fclose depois de usar?\n");
+		return;
+	}
+	fseek(fs, 0, SEEK_END);
+	fl = ftell(fs);
+	fseek(fs, 0, SEEK_SET);
+	mb = (unsigned char *) malloc(fl);
+	fread(mb, 1, fl, fs);
+
+	cs = 0;
+	for(i = 0; i < fl; i++) {
+		cs += (unsigned long) mb[i];
+	}
+	printf("%lf\n", (cs / (double) 100));
+	fflush(stdout); // Força a limpeza do buffer de saída
+	free(mb);
+	fclose(fs);
+}
+
+
+/**
+ * @brief Lê uma string entre aspas da entrada e remove as aspas.
+ *
+ * Esta função lê uma string delimitada por aspas duplas (") e remove as aspas.
+ * Se a entrada for "NULO", define a string como vazia.
+ *
+ * @param str Ponteiro para a string onde o resultado será armazenado.
+ */
 void scan_quote_string(char *str) {
 
 	/*
@@ -40,36 +86,53 @@ void scan_quote_string(char *str) {
 	}
 }
 
-
+/**
+ * @brief Converte uma string para float de forma segura.
+ *
+ * Esta função tenta converter uma string para um valor float. Caso a string seja inválida
+ * ou contenha caracteres não numéricos, ela retorna -1.0f.
+ *
+ * @param str A string que será convertida.
+ * @return O valor float convertido ou -1.0f se a conversão falhar.
+ */
 float safeStringToFloat(const char *str) {
-    char *endptr;
-    float value = strtof(str, &endptr);
+    char *endptr; // Ponteiro para verificar onde a conversão parou
+    float value = strtof(str, &endptr); // Converte a string para float
 
+    // Verifica se a conversão falhou ou se há caracteres inválidos
     if (endptr == str || *endptr != '\0') {
-        return -1.0f;
+        return -1.0f; // Retorna -1.0f em caso de erro
     }
-    return value;
+    return value; // Retorna o valor convertido
 }
 
-void adjustValue(char *value) {
-    size_t len = strlen(value);
-    if (value[0] == '"' && value[len - 1] == '"') {
-        memmove(value, value + 1, len - 2);
-        value[len - 2] = '\0';
-    }
-}
-
+/**
+ * @brief Lê um campo de um arquivo CSV.
+ *
+ * Esta função lê um campo de um arquivo CSV, lidando com os delimitadores (vírgula)
+ * e caracteres de fim de linha. Ela armazena o valor lido na string de destino.
+ *
+ * @param fp Ponteiro para o arquivo sendo lido.
+ * @param dest Ponteiro para a string onde o campo será armazenado.
+ * @return 1 se um campo foi lido com sucesso, 0 se o fim da linha ou do arquivo for alcançado.
+ */
 int read_field(FILE *fp, char *dest) {
-    int ch = fgetc(fp);
+    int ch = fgetc(fp); // Lê o próximo caractere do arquivo
+
+    // Verifica se o caractere é uma vírgula (campo vazio)
     if (ch == ',') {
-        dest[0] = '\0';
-        return 1;
-    } else if (ch == EOF || ch == '\n') {
-        return 0;
-    } else {
-        ungetc(ch, fp);
-        fscanf(fp, "%255[^,\n]", dest);
-        ch = fgetc(fp);
-        return (ch != EOF);
+        dest[0] = '\0'; // Define a string como vazia
+        return 1; // Retorna sucesso
+    } 
+    // Verifica se é o fim do arquivo ou fim da linha
+    else if (ch == EOF || ch == '\n') {
+        return 0; // Retorna falha
+    } 
+    // Caso contrário, lê o campo normalmente
+    else {
+        ungetc(ch, fp); // Devolve o caractere lido ao buffer
+        fscanf(fp, "%255[^,\n]", dest); // Lê até encontrar uma vírgula ou fim de linha
+        ch = fgetc(fp); // Lê o próximo caractere
+        return (ch != EOF); // Retorna sucesso se não for o fim do arquivo
     }
 }
