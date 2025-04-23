@@ -7,6 +7,6 @@
 
 int generateBinaryFile(const char *inputFile, char *binaryFile);
 void printAllUntilId(const char *binaryFile);
-int sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]);
+void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]);
 
 #endif // BINARY_OPERATIONS_H

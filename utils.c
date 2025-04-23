@@ -136,3 +136,26 @@ int read_field(FILE *fp, char *dest) {
         return (ch != EOF); // Retorna sucesso se não for o fim do arquivo
     }
 }
+
+/**
+ * @brief Aloca memória e copia o conteúdo de um campo para o registro.
+ *
+ * @param field O campo do CSV a ser copiado.
+ * @param recordField Ponteiro para o campo do registro onde o valor será armazenado.
+ * @param input Ponteiro para o arquivo de entrada (para fechamento em caso de erro).
+ * @param output Ponteiro para o arquivo de saída (para fechamento em caso de erro).
+ * @return 0 em caso de sucesso, -1 em caso de falha.
+ */
+ int allocateAndCopyField(const char *field, char **recordField, FILE *input, FILE *output) {
+    if (strlen(field) > 0) {
+        *recordField = malloc(strlen(field) + 1); // +1 para o terminador nulo
+        if (!*recordField) {
+            fclose(input);
+            fclose(output);
+            return -1;
+        }
+        strcpy(*recordField, field);
+    }
+    return 0;
+}
+

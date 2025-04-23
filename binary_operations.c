@@ -68,24 +68,32 @@ int generateBinaryFile(const char *inputFile, char *binaryFile) {
         record.financialLoss = strlen(field[2]) > 0 ? safeStringToFloat(field[2]) : -1.0f;
 
         // Aloca memória e copia os campos de texto
-        if (strlen(field[3]) > 0) {
-            record.country = malloc(strlen(field[3]));
-            strcpy(record.country, field[3]);
+        if (allocateAndCopyField(field[3], &record.country, input, output) == -1) {
+            free(record.attackType);
+            free(record.targetIndustry);
+            free(record.defenseStrategy);
+            return -1;
         }
 
-        if (strlen(field[4]) > 0) {
-            record.attackType = malloc(strlen(field[4]));
-            strcpy(record.attackType, field[4]);
+        if (allocateAndCopyField(field[4], &record.attackType, input, output) == -1) {
+            free(record.country);
+            free(record.targetIndustry);
+            free(record.defenseStrategy);
+            return -1;
         }
 
-        if (strlen(field[5]) > 0) {
-            record.targetIndustry = malloc(strlen(field[5]));
-            strcpy(record.targetIndustry, field[5]);
+        if (allocateAndCopyField(field[5], &record.targetIndustry, input, output) == -1) {
+            free(record.country);
+            free(record.attackType);
+            free(record.defenseStrategy);
+            return -1;
         }
 
-        if (strlen(field[6]) > 0) {
-            record.defenseStrategy = malloc(strlen(field[6]));
-            strcpy(record.defenseStrategy, field[6]);
+        if (allocateAndCopyField(field[6], &record.defenseStrategy, input, output) == -1) {
+            free(record.country);
+            free(record.attackType);
+            free(record.targetIndustry);
+            return -1;
         }
 
         record.removido = '0'; // Marca o registro como não removido
@@ -179,20 +187,30 @@ void printAllUntilId(const char *binaryFile) {
         return; // Stop processing and return to the main menu
     }
 
-    // Pula os primeiros 276 bytes (cabeçalho)
-    if (fseek(file, 276, SEEK_SET) != 0) {
+    // Verifica se o primeiro byte do arquivo é "1"
+    char status;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return; 
+    }
+
+    // Pula os próximos 275 bytes (restante do cabeçalho)
+    if (fseek(file, 275, SEEK_CUR) != 0) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
         return;
     }
 
     Record record;
+    int found = 0; // Flag para verificar se algum registro foi encontrado
 
     // Percorre o arquivo sequencialmente
     while (readRecord(file, &record)) {
         // Imprime o registro
         if (record.removido == '0') {
             printRecord(record);
+            found = 1; // Marca que pelo menos um registro foi encontrado
         }
 
         // Libera a memória alocada
@@ -200,6 +218,11 @@ void printAllUntilId(const char *binaryFile) {
         free(record.attackType);
         free(record.targetIndustry);
         free(record.defenseStrategy);
+    }
+
+    // Se nenhum registro foi encontrado, imprime a mensagem
+    if (!found) {
+        printf("Registro inexistente.\n");
     }
 
     fclose(file);
@@ -216,18 +239,26 @@ void printAllUntilId(const char *binaryFile) {
  * @param values Array com os valores dos critérios.
  * @return 1 se registros forem encontrados, 0 se nenhum registro corresponder, -1 em caso de falha.
  */
-int sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
+void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
     FILE *file = fopen(binaryFile, "rb"); // Abre o arquivo binário para leitura
     if (!file) {
         printf("Falha no processamento do arquivo.\n");
-        return -1; // Indica falha no processamento
+        return; 
     }
 
-    // Pula os primeiros 276 bytes (cabeçalho)
-    if (fseek(file, 276, SEEK_SET) != 0) {
+    // Verifica se o primeiro byte do arquivo é "1"
+    char status;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        return 0; // Indica que nenhum resultado foi encontrado
+        return; 
+    }
+
+    // Pula os próximos 275 bytes (restante do cabeçalho)
+    if (fseek(file, 275, SEEK_CUR) != 0) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return; 
     }
 
     Record record;
@@ -273,8 +304,17 @@ int sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][2
 
     if (found == 1) {
         printf("**********\n"); // Imprime separador se registros forem encontrados
+    } else {
+        printf("Registro inexistente.\n\n**********\n");
     }
 
     fclose(file); // Fecha o arquivo
-    return found; // Retorna se algum registro correspondeu
 }
+
+// Adicionado: Certifique-se de usar ou declarar sequentialSearch corretamente
+void exampleUsage() {
+    char criteria[3][256] = {"idAttack", "year", "country"};
+    char values[3][256] = {"123", "2023", "Brazil"};
+    sequentialSearch("example.bin", 3, criteria, values);
+}
+

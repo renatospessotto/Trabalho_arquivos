@@ -78,6 +78,15 @@ int readRecord(FILE *file, Record *record) {
     record->targetIndustry = malloc(256);
     record->defenseStrategy = malloc(256);
 
+    if (!record->country || !record->attackType || !record->targetIndustry || !record->defenseStrategy) {
+        // Libera memória em caso de falha na alocação
+        free(record->country);
+        free(record->attackType);
+        free(record->targetIndustry);
+        free(record->defenseStrategy);
+        return 0; // Falha
+    }
+
     // Lê os campos variáveis do registro
     int index = 1;
     readVariableArray(file, record->country, index++); // Lê o campo "country"

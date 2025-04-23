@@ -48,9 +48,6 @@ int main() {
                 int repeatCount; // Número de buscas a serem realizadas
                 scanf("%d", &repeatCount);
 
-                int foundAny = 0; // Flag para indicar se algum registro foi encontrado
-                int processingFailed = 0; // Flag para indicar falha no processamento
-
                 for (int r = 0; r < repeatCount; r++) {
                     int numCriteria; // Número de critérios de busca
                     scanf("%d", &numCriteria);
@@ -71,21 +68,7 @@ int main() {
                     }
 
                     // Realiza a busca sequencial com os critérios fornecidos
-                    int found = sequentialSearch(binaryFile, numCriteria, criteria, values);
-                    if (found == -1) { // Indica falha no processamento
-                        processingFailed = 1;
-                        break;
-                    }
-                    if (found) {
-                        foundAny = 1; // Marca que pelo menos um registro foi encontrado
-                    }
-                    fflush(stdout); // Garante que a saída seja exibida imediatamente
-                }
-
-                // Exibe mensagem caso nenhum registro seja encontrado
-                if (!processingFailed && !foundAny) {
-                    printf("Registro inexistente.\n\n");
-                    printf("**********\n");
+                    sequentialSearch(binaryFile, numCriteria, criteria, values);
                 }
 
                 return 0; // Encerra o programa
