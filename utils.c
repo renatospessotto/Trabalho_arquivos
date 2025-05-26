@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <ctype.h> // Added to fix isspace warning
 #include <string.h>
+#include <math.h>   // Adicionado para fabs
 #include <stdio.h> // Added to fix FILE type error
 
 
@@ -157,5 +158,108 @@ int read_field(FILE *fp, char *dest) {
         strcpy(*recordField, field);
     }
     return 0;
+}
+
+
+
+/**
+ * @brief Percorre a lista encadeada de removidos a partir do topo do cabeçalho até encontrar -1.
+ *
+ * @param fp Ponteiro para o arquivo binário aberto.
+ * @param header_topo Byte offset inicial do topo da lista (deve ser lido do cabeçalho).
+ * @return O byte offset do último nó da lista encadeada de removidos, ou -1 se a lista estiver vazia.
+ */
+long find_last_removed(FILE *fp, long header_topo) {
+	long long current = header_topo;
+
+	if (current == -1) return -1;
+
+	while (current != -1) {
+		char removido;
+		int tamanhoRegistro;
+		long long next;
+		int id;
+
+		fseek(fp, current, SEEK_SET);
+		fread(&removido, sizeof(char), 1, fp);
+		fread(&tamanhoRegistro, sizeof(int), 1, fp);
+		fread(&next, sizeof(long long), 1, fp);
+		fread(&id, sizeof(int), 1, fp);
+		printf("ID: %d\n", id);
+		if (next == -1) break;
+		current = next;
+	}
+	return current;
+}
+
+
+/**
+ * @brief Calcula o tamanho total do registro (campos fixos + variáveis).
+ *
+ * @param record Ponteiro para o registro.
+ * @return Tamanho total do registro.
+ */
+int calculateRecordSize(const Record *record) {
+    int variableFieldsSize = 0;
+    if (record->country) variableFieldsSize += strlen(record->country) + 2;
+    if (record->attackType) variableFieldsSize += strlen(record->attackType) + 2;
+    if (record->targetIndustry) variableFieldsSize += strlen(record->targetIndustry) + 2;
+    if (record->defenseStrategy) variableFieldsSize += strlen(record->defenseStrategy) + 2;
+
+    int fixedFieldsSize = sizeof(record->tamanhoRegistro) +
+                          sizeof(record->prox) +
+                          sizeof(record->id) +
+                          sizeof(record->year) +
+                          sizeof(record->financialLoss);
+
+    return fixedFieldsSize + variableFieldsSize - 4;
+}
+
+
+
+/**
+ * @brief Verifica quantos critérios batem entre um registro e os critérios/valores fornecidos.
+ *
+ * @param record Ponteiro para o registro.
+ * @param numCriteria Número de critérios.
+ * @param criteria Array de nomes dos campos.
+ * @param values Array de valores dos critérios.
+ * @return Número de critérios que batem.
+ */
+int matchRecord(const Record *record, int numCriteria, char criteria[3][256], char values[3][256]) {
+    int matchCount = 0;
+    for (int i = 0; i < numCriteria; i++) {
+        char adjustedValue[256];
+        strncpy(adjustedValue, values[i], sizeof(adjustedValue) - 1);
+        adjustedValue[sizeof(adjustedValue) - 1] = '\0';
+
+        if (strcasecmp(criteria[i], "idAttack") == 0 && record->id == atoi(adjustedValue)) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "year") == 0 && record->year == atoi(adjustedValue)) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "financialLoss") == 0 && fabs(record->financialLoss - safeStringToFloat(adjustedValue)) < 0.001) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "country") == 0 && strcasecmp(record->country, adjustedValue) == 0) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "attackType") == 0 && strcasecmp(record->attackType, adjustedValue) == 0) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "targetIndustry") == 0 && strcasecmp(record->targetIndustry, adjustedValue) == 0) {
+            matchCount++;
+        } else if (strcasecmp(criteria[i], "defenseMechanism") == 0 && record->defenseStrategy != NULL && strcasecmp(record->defenseStrategy, adjustedValue) == 0) {
+            matchCount++;
+        }
+    }
+    return matchCount;
+}
+
+/**
+ * @param file Ponteiro para o arquivo a ser preenchido.
+ * @param count O número de caracteres lixo a serem escritos.
+ */
+void fillWithTrash(FILE *file, int count) {
+    char trash = '$';
+    for (int i = 0; i < count; i++) {
+        fwrite(&trash, sizeof(char), 1, file);
+    }
 }
 

@@ -1,16 +1,17 @@
 #include "binary_operations.h"
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h> // Incluído para corrigir avisos de strncpy e strcasecmp
-#include <math.h>   // Incluído para corrigir avisos de fabs
+#include <string.h> 
+#include <math.h>   
+
 
 /**
  * @brief Gera um arquivo binário a partir de um arquivo CSV de entrada.
  *
- * Esta função lê um arquivo CSV, processa seu conteúdo e grava em um arquivo binário.
+ * Lê um arquivo CSV, processa seu conteúdo e grava os registros em um arquivo binário.
  *
- * @param inputFile O caminho para o arquivo CSV de entrada.
- * @param binaryFile O caminho para o arquivo binário de saída.
+ * @param inputFile Caminho para o arquivo CSV de entrada.
+ * @param binaryFile Caminho para o arquivo binário de saída.
  * @return 0 em caso de sucesso, -1 em caso de falha.
  */
 int generateBinaryFile(const char *inputFile, char *binaryFile) {
@@ -100,53 +101,10 @@ int generateBinaryFile(const char *inputFile, char *binaryFile) {
         record.prox = -1; // Define o próximo registro como inexistente
 
         // Calcula o tamanho do registro
-        int variableFieldsSize = 0;
-
-        if (record.country) {
-            variableFieldsSize += strlen(record.country) + 2; // +1 para o delimitador '|'
-        }
-        if (record.attackType) {
-            variableFieldsSize += strlen(record.attackType) + 2;
-        }
-        if (record.targetIndustry) {
-            variableFieldsSize += strlen(record.targetIndustry) + 2;
-        }
-        if (record.defenseStrategy) {
-            variableFieldsSize += strlen(record.defenseStrategy) + 2;
-        }
-
-        int fixedFieldsSize = sizeof(record.tamanhoRegistro) +
-                              sizeof(record.prox) + sizeof(record.id) + sizeof(record.year) +
-                              sizeof(record.financialLoss);
-
-        record.tamanhoRegistro = fixedFieldsSize + variableFieldsSize - 4;
+        record.tamanhoRegistro = calculateRecordSize(&record);
 
         // Escreve o registro no arquivo binário
-        fwrite(&record.removido, sizeof(char), 1, output);
-        fwrite(&record.tamanhoRegistro, sizeof(int), 1, output);
-        fwrite(&record.prox, sizeof(long long), 1, output);
-        fwrite(&record.id, sizeof(int), 1, output);
-
-        if (record.year != -1) {
-            fwrite(&record.year, sizeof(int), 1, output);
-        } else {
-            int sentinelYear = -1; // Representado como 0xFFFFFFFF
-            fwrite(&sentinelYear, sizeof(int), 1, output);
-        }
-
-        if (record.financialLoss != -1.0f) {
-            fwrite(&record.financialLoss, sizeof(float), 1, output);
-        } else {
-            float sentinelValue = -1.0f; // Representado como 0x80BF em IEEE 754
-            fwrite(&sentinelValue, sizeof(float), 1, output);
-        }
-
-        // Escreve os campos variáveis no arquivo binário
-        char index = 1;
-        writeVariableArray(output, record.country, index++);
-        writeVariableArray(output, record.attackType, index++);
-        writeVariableArray(output, record.targetIndustry, index++);
-        writeVariableArray(output, record.defenseStrategy, index);
+        writeRecord(output, &record);
 
         recordCount++; // Incrementa o contador de registros
 
@@ -172,13 +130,15 @@ int generateBinaryFile(const char *inputFile, char *binaryFile) {
 }
 
 
+
+
 /**
  * @brief Imprime todos os registros de um arquivo binário até encontrar um ID específico.
  *
- * Esta função lê registros sequencialmente de um arquivo binário e imprime seus detalhes
+ * Lê registros sequencialmente de um arquivo binário e imprime seus detalhes
  * até encontrar um registro com o ID especificado.
  *
- * @param binaryFile O caminho para o arquivo binário a ser lido.
+ * @param binaryFile Caminho para o arquivo binário a ser lido.
  */
 void printAllUntilId(const char *binaryFile) {
     FILE *file = fopen(binaryFile, "rb");
@@ -199,15 +159,20 @@ void printAllUntilId(const char *binaryFile) {
     if (fseek(file, 275, SEEK_CUR) != 0) {
         printf("Falha no processamento do arquivo.\n");
         fclose(file);
-        return;
+        return; 
     }
+
+        printf("Byte offset atual: %ld\n", ftell(file));
 
     Record record;
     int found = 0; // Flag para verificar se algum registro foi encontrado
-
     // Percorre o arquivo sequencialmente
     while (readRecord(file, &record)) {
-        // Imprime o registro
+
+        if (record.id == 15 ){
+            break;
+        }
+
         if (record.removido == '0') {
             printRecord(record);
             found = 1; // Marca que pelo menos um registro foi encontrado
@@ -231,13 +196,12 @@ void printAllUntilId(const char *binaryFile) {
 /**
  * @brief Realiza uma busca sequencial em um arquivo binário com base em critérios.
  *
- * Esta função busca registros em um arquivo binário que correspondam aos critérios especificados.
+ * Busca registros em um arquivo binário que correspondam aos critérios especificados.
  *
- * @param binaryFile O caminho para o arquivo binário a ser pesquisado.
- * @param numCriteria O número de critérios a serem correspondidos.
+ * @param binaryFile Caminho para o arquivo binário a ser pesquisado.
+ * @param numCriteria Número de critérios a serem correspondidos.
  * @param criteria Array com os nomes dos campos de critério.
  * @param values Array com os valores dos critérios.
- * @return 1 se registros forem encontrados, 0 se nenhum registro corresponder, -1 em caso de falha.
  */
 void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
     FILE *file = fopen(binaryFile, "rb"); // Abre o arquivo binário para leitura
@@ -265,34 +229,10 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
     int found = 0; // Flag para rastrear se algum registro corresponde
 
     while (readRecord(file, &record)) {
-        int matchCount = 0; // Contador de correspondências para os critérios
-        for (int i = 0; i < numCriteria; i++) {
-            char adjustedValue[256];
-            strncpy(adjustedValue, values[i], sizeof(adjustedValue) - 1);
-            adjustedValue[sizeof(adjustedValue) - 1] = '\0';
-
-            // Verifica se o critério corresponde ao campo do registro
-            if (strcasecmp(criteria[i], "idAttack") == 0 && record.id == atoi(adjustedValue)) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "year") == 0 && record.year == atoi(adjustedValue)) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "financialLoss") == 0 && fabs(record.financialLoss - safeStringToFloat(adjustedValue)) < 0.001) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "country") == 0 && strcasecmp(record.country, adjustedValue) == 0) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "attackType") == 0 && strcasecmp(record.attackType, adjustedValue) == 0) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "targetIndustry") == 0 && strcasecmp(record.targetIndustry, adjustedValue) == 0) {
-                matchCount++;
-            } else if (strcasecmp(criteria[i], "defenseMechanism") == 0 && record.defenseStrategy != NULL && strcasecmp(record.defenseStrategy, adjustedValue) == 0) {
-                matchCount++;
-            }
-        }
-
-        // Se todos os critérios forem atendidos e o registro não estiver removido
+        int matchCount = matchRecord(&record, numCriteria, criteria, values);
         if (matchCount == numCriteria && record.removido == '0') {
-            printRecord(record); // Imprime o registro
-            found = 1; // Marca que um registro foi encontrado
+            printRecord(record);
+            found = 1;
         }
 
         // Libera a memória alocada dinamicamente
@@ -304,17 +244,367 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
 
     if (found == 1) {
         printf("**********\n"); // Imprime separador se registros forem encontrados
-    } else {
+    } 
+    else {
         printf("Registro inexistente.\n\n**********\n");
     }
 
     fclose(file); // Fecha o arquivo
 }
 
-// Adicionado: Certifique-se de usar ou declarar sequentialSearch corretamente
-void exampleUsage() {
-    char criteria[3][256] = {"idAttack", "year", "country"};
-    char values[3][256] = {"123", "2023", "Brazil"};
-    sequentialSearch("example.bin", 3, criteria, values);
+
+
+/**
+ * @brief Marca registros como removidos com base em critérios múltiplos.
+ *
+ * Busca registros no arquivo binário que correspondam aos critérios e altera o campo
+ * 'removido' para '1', indicando que o registro foi logicamente excluído.
+ *
+ * @param binaryFile Caminho para o arquivo binário.
+ * @param numCriteria Número de critérios.
+ * @param criteria Array com os nomes dos campos de critério.
+ * @param values Array com os valores dos critérios.
+ * @return Número de registros removidos, -1 em caso de falha.
+ */
+int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteria[3][256], char values[3][256]) {
+    FILE *file = fopen(binaryFile, "rb+");
+    if (!file) {
+        printf("Falha no processamento do arquivo.\n");
+        return -1;
+    }
+
+    // Verifica se o primeiro byte do arquivo é "1"
+    char status;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    // Pula os próximos 275 bytes (restante do cabeçalho)
+    if (fseek(file, 275, SEEK_CUR) != 0) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    Record record;
+    Header header;
+    long long recordOffset;
+    int removedCount = 0;
+
+    while ((recordOffset = ftell(file)), readRecord(file, &record)) {
+        int matchCount = matchRecord(&record, numCriteria, criteria, values);
+        if (matchCount == numCriteria && record.removido == '0') {
+
+            readHeader(file, &header); // Lê o cabeçalho para obter o topo da lista de removido
+            // Marca como removido
+            record.removido = '1';
+
+            // Atualiza o campo prox do registro removido para apontar para o antigo topo
+            long long novoProx = header.topo;
+            header.topo = recordOffset;
+
+            // Atualiza o registro removido no arquivo
+            fseek(file, recordOffset, SEEK_SET);
+            fwrite(&record.removido, sizeof(char), 1, file);
+            fseek(file, sizeof(int), SEEK_CUR); // pula tamanhoRegistro
+            fwrite(&novoProx, sizeof(long long), 1, file);
+
+            // Atualiza contadores de removidos e ativos
+            header.nroRegRem++;
+            header.nroRegArq--;
+
+            removedCount++;
+        }
+
+        // Libera memória alocada dinamicamente
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
+    }
+
+    // Atualiza o cabeçalho no início do arquivo
+    updateHeader(file, &header);
+
+    fclose(file);
+    return removedCount;
+}
+
+
+
+
+
+/**
+ * @brief Insere um registro no arquivo binário, reaproveitando registros removidos (First Fit).
+ *
+ * Insere um novo registro no arquivo binário, reutilizando espaço de registros logicamente removidos
+ * ou adicionando no final do arquivo, caso não haja espaço suficiente.
+ *
+ * @param binaryFile Caminho para o arquivo binário.
+ * @param id Identificador do ataque.
+ * @param year Ano do ataque.
+ * @param financialLoss Prejuízo financeiro causado pelo ataque.
+ * @param country País onde ocorreu o ataque.
+ * @param attackType Tipo de ataque.
+ * @param targetIndustry Setor alvo do ataque.
+ * @param defenseStrategy Estratégia de defesa utilizada.
+ * @return 0 em caso de sucesso, -1 em caso de falha.
+ */
+int insertRecord(const char *binaryFile, int id, int year, float financialLoss, const char *country, const char *attackType, const char *targetIndustry, const char *defenseStrategy) {
+    FILE *file = fopen(binaryFile, "rb+");
+    if (!file) {
+        printf("Falha no processamento do arquivo.\n");
+        return -1;
+    }
+
+    // Verifica se o primeiro byte do arquivo é "1"
+    char status;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    // Pula os próximos 275 bytes (restante do cabeçalho)
+    if (fseek(file, 275, SEEK_CUR) != 0) {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    // Declara e lê o cabeçalho
+    Header header;
+    readHeader(file, &header);
+
+    // Monta o registro a ser inserido
+    Record record;
+    record.removido = '0';
+    record.id = id;
+    record.year = year;
+    record.financialLoss = financialLoss;
+    record.country = country ? strdup(country) : NULL;
+    record.attackType = attackType ? strdup(attackType) : NULL;
+    record.targetIndustry = targetIndustry ? strdup(targetIndustry) : NULL;
+    record.defenseStrategy = defenseStrategy ? strdup(defenseStrategy) : NULL;
+    record.prox = -1;
+
+    // Calcula tamanho do registro novo
+    int novoTamanhoRegistro = calculateRecordSize(&record);
+
+    // Estratégia First Fit: procura espaço removido suficiente
+    long long prevOffset = -1, currOffset = header.topo, foundOffset = -1, prox = 0;
+    int found = 0;
+    int fillBytes = 0; // Variável para armazenar o número de bytes de lixo
+
+    while (currOffset != -1) {
+        fseek(file, currOffset, SEEK_SET);
+        char removido;
+        int tamanhoRegistro; // Este é o tamanho do registro removido lido do arquivo
+        fread(&removido, sizeof(char), 1, file);
+        fread(&tamanhoRegistro, sizeof(int), 1, file);
+        fread(&prox, sizeof(long long), 1, file);
+
+        // Verifica se o espaço é suficiente
+        if (tamanhoRegistro >= novoTamanhoRegistro) {
+            found = 1;
+            foundOffset = currOffset;
+            fillBytes = tamanhoRegistro - novoTamanhoRegistro + 2;
+
+            // Atualiza o 'prox' do prevOffset para o 'prox' do currOffset
+            if (prevOffset != -1) {
+                fseek(file, prevOffset + sizeof(char) + sizeof(int), SEEK_SET);
+                fwrite(&prox, sizeof(long long), 1, file);
+            } else {
+                // Se prevOffset for -1, atualiza o topo da pilha
+                header.topo = prox;
+            }
+            break;
+        }
+
+        // Atualiza os offsets
+        prevOffset = currOffset;
+        currOffset = prox;
+    }
+
+    if (found) {
+        // Reutiliza espaço removido
+        fseek(file, foundOffset, SEEK_SET);
+        writeRecord(file, &record);
+
+        // Preenche com '$' se necessário
+        if (fillBytes > 0) {
+            fillWithTrash(file, fillBytes);
+        }
+
+        // Atualiza contadores de registros
+        header.nroRegArq++;
+        header.nroRegRem--;
+    } else {
+        // Insere no final do arquivo
+        fseek(file, 0, SEEK_END);
+        writeRecord(file, &record);
+        header.nroRegArq++;
+        header.proxByteOffset = ftell(file);
+    }
+
+    // Atualiza o cabeçalho no início do arquivo
+    updateHeader(file, &header);
+
+    free(record.country);
+    free(record.attackType);
+    free(record.targetIndustry);
+    free(record.defenseStrategy);
+
+    fclose(file);
+    return 0;
+}
+
+
+
+
+/**
+ * @brief Atualiza registros no arquivo binário com base em critérios e novos valores.
+ *
+ * Busca registros que correspondam aos critérios especificados e atualiza seus campos
+ * com os novos valores fornecidos. Reutiliza espaço ou realoca registros, se necessário.
+ *
+ * @param binaryFile Caminho para o arquivo binário.
+ * @param numUpdates Número de atualizações a serem realizadas.
+ * @param numCriteria Número de critérios para correspondência.
+ * @param criteria Array com os nomes dos campos de critério.
+ * @param values Array com os valores dos critérios.
+ * @param numUpdatesFields Número de campos a serem atualizados.
+ * @param updateFields Array com os nomes dos campos a serem atualizados.
+ * @param updateValues Array com os novos valores para os campos.
+ * @return Número de registros atualizados, -1 em caso de falha.
+ */
+int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char criteria[3][256], char values[3][256], int numUpdatesFields, char updateFields[3][256], char updateValues[3][256]) {
+    FILE *file = fopen(binaryFile, "rb+");
+    if (!file) {
+        printf("Falha no processamento do arquivo.\n");
+        return -1;
+    }
+
+    // Verifica se o primeiro byte do arquivo é "1"
+    char status;
+    if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
+        printf("Falha no processamento do arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    // Declara e lê o cabeçalho
+    Header header;
+    readHeader(file, &header);
+
+    // Move o ponteiro para o byte 276 (início dos registros)
+    if (fseek(file, 276, SEEK_SET) != 0) {
+        printf("Falha ao posicionar o ponteiro no arquivo.\n");
+        fclose(file);
+        return -1;
+    }
+
+    int updatedCount = 0;
+    Record record;
+
+    while (readRecord(file, &record)) {
+        long long recordOffset = ftell(file) - (sizeof(char) + sizeof(int) + record.tamanhoRegistro);
+
+        int matchCount = matchRecord(&record, numCriteria, criteria, values);
+
+        if (matchCount == numCriteria && record.removido == '0') {
+            Record updated = record;
+            updated.country = record.country ? strdup(record.country) : NULL;
+            updated.attackType = record.attackType ? strdup(record.attackType) : NULL;
+            updated.targetIndustry = record.targetIndustry ? strdup(record.targetIndustry) : NULL;
+            updated.defenseStrategy = record.defenseStrategy ? strdup(record.defenseStrategy) : NULL;
+
+            int changed = 0;
+            for (int i = 0; i < numUpdatesFields; i++) {
+                char adjustedValue[256];
+                strncpy(adjustedValue, updateValues[i], sizeof(adjustedValue) - 1);
+                adjustedValue[sizeof(adjustedValue) - 1] = '\0';
+
+                if (strcasecmp(updateFields[i], "idAttack") == 0) {
+                    continue;
+                } else if (strcasecmp(updateFields[i], "year") == 0) {
+                    int newYear = atoi(adjustedValue);
+                    if (updated.year != newYear) {
+                        updated.year = newYear;
+                        changed = 1;
+                    }
+                } else if (strcasecmp(updateFields[i], "financialLoss") == 0) {
+                    float newLoss = safeStringToFloat(adjustedValue);
+                    if (fabs(updated.financialLoss - newLoss) > 0.001) {
+                        updated.financialLoss = newLoss;
+                        changed = 1;
+                    }
+                } else if (strcasecmp(updateFields[i], "country") == 0 && updated.country != NULL) {
+                    if (strcmp(updated.country, adjustedValue) != 0) {
+                        free(updated.country);
+                        updated.country = strdup(adjustedValue);
+                        changed = 1;
+                    }
+                } else if (strcasecmp(updateFields[i], "attackType") == 0 && updated.attackType != NULL) {
+                    if (strcmp(updated.attackType, adjustedValue) != 0) {
+                        free(updated.attackType);
+                        updated.attackType = strdup(adjustedValue);
+                        changed = 1;
+                    }
+                } else if (strcasecmp(updateFields[i], "targetIndustry") == 0 && updated.targetIndustry != NULL) {
+                    if (strcmp(updated.targetIndustry, adjustedValue) != 0) {
+                        free(updated.targetIndustry);
+                        updated.targetIndustry = strdup(adjustedValue);
+                        changed = 1;
+                    }
+                } else if (strcasecmp(updateFields[i], "defenseMechanism") == 0 && updated.defenseStrategy != NULL) {
+                    if (strcmp(updated.defenseStrategy, adjustedValue) != 0) {
+                        free(updated.defenseStrategy);
+                        updated.defenseStrategy = strdup(adjustedValue);
+                        changed = 1;
+                    }
+                }
+            }
+
+            if (changed) {
+                int oldSize = record.tamanhoRegistro;
+                int newSize = calculateRecordSize(&updated);
+
+                if (newSize <= oldSize) {
+                    updated.tamanhoRegistro = oldSize;
+                    fseek(file, recordOffset, SEEK_SET);
+                    writeRecord(file, &updated);
+                    int fillBytes = oldSize - newSize;
+                    if (fillBytes > 0) {
+                        fillWithTrash(file, fillBytes);
+                    }
+                } else {
+                    deleteRecordByCriteria(binaryFile, 1, criteria, values);
+
+                    fclose(file);
+                    insertRecord(binaryFile, updated.id, updated.year, updated.financialLoss, updated.country, updated.attackType, updated.targetIndustry, updated.defenseStrategy);
+                    file = fopen(binaryFile, "rb+");
+                    fseek(file, 276, SEEK_SET);
+                }
+                updatedCount++;
+            }
+
+            free(updated.country);
+            free(updated.attackType);
+            free(updated.targetIndustry);
+            free(updated.defenseStrategy);
+        }
+
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
+    }
+
+    updateHeader(file, &header);
+    fclose(file);
+    return updatedCount;
 }
 

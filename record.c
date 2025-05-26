@@ -89,11 +89,28 @@ int readRecord(FILE *file, Record *record) {
 
     // Lê os campos variáveis do registro
     int index = 1;
-    readVariableArray(file, record->country, index++); // Lê o campo "country"
-    readVariableArray(file, record->attackType, index++); // Lê o campo "attackType"
-    readVariableArray(file, record->targetIndustry, index++); // Lê o campo "targetIndustry"
-    readVariableArray(file, record->defenseStrategy, index++); // Lê o campo "defenseStrategy"
+    if (!readVariableArray(file, record->country, index++) ||
+        !readVariableArray(file, record->attackType, index++) ||
+        !readVariableArray(file, record->targetIndustry, index++) ||
+        !readVariableArray(file, record->defenseStrategy, index)) {
+        // Libera memória em caso de falha na leitura
+        free(record->country);
+        free(record->attackType);
+        free(record->targetIndustry);
+        free(record->defenseStrategy);
+        return 0; // Falha
+    }
 
+    // Lê caracteres até encontrar um caractere diferente de '$'
+    char c;
+    while (fread(&c, sizeof(char), 1, file) == 1 && c == '$') {
+        // Continua lendo enquanto for '$'
+    }
+    if (c != '$') {
+        // Volta 1 byte se encontrou um caractere diferente de '$'
+        fseek(file, -1, SEEK_CUR);
+    }
+    
     return 1; // Sucesso
 }
 
@@ -131,8 +148,9 @@ void writeVariableArray(FILE *file, const char *array, char index) {
  * @param file Ponteiro para o arquivo binário.
  * @param buffer Ponteiro para o buffer onde a string será armazenada.
  * @param expectedIndex O índice esperado do campo.
+ * @return 1 em caso de sucesso, 0 em caso de falha.
  */
-void readVariableArray(FILE *file, char *buffer, int expectedIndex) {
+int readVariableArray(FILE *file, char *buffer, int expectedIndex) {
     char c, index;
     int i = 0;
 
@@ -143,7 +161,7 @@ void readVariableArray(FILE *file, char *buffer, int expectedIndex) {
     if (fread(&index, sizeof(char), 1, file) != 1 || (index - '0') != expectedIndex) {
         buffer[0] = '\0'; // Define o buffer como vazio
         fseek(file, initialPosition, SEEK_SET); // Retorna à posição inicial
-        return;
+        return 0; // Falha
     }
 
     // Lê os caracteres do campo até encontrar o delimitador '|'
@@ -154,7 +172,42 @@ void readVariableArray(FILE *file, char *buffer, int expectedIndex) {
     // Se nenhum caractere foi lido, retorna à posição inicial
     if (i == 0) {
         fseek(file, initialPosition, SEEK_SET);
+        return 0; // Falha
     }
 
     buffer[i] = '\0'; // Finaliza a string com o caractere nulo
+    return 1; // Sucesso
+}
+
+/**
+ * @brief Escreve um registro no arquivo binário, incluindo campos fixos e variáveis.
+ *
+ * @param file Ponteiro para o arquivo binário.
+ * @param record Ponteiro para o registro a ser escrito.
+ */
+void writeRecord(FILE *file, const Record *record) {
+    fwrite(&record->removido, sizeof(char), 1, file);
+    fwrite(&record->tamanhoRegistro, sizeof(int), 1, file);
+    fwrite(&record->prox, sizeof(long long), 1, file);
+    fwrite(&record->id, sizeof(int), 1, file);
+
+    if (record->year != -1) {
+        fwrite(&record->year, sizeof(int), 1, file);
+    } else {
+        int sentinelYear = -1;
+        fwrite(&sentinelYear, sizeof(int), 1, file);
+    }
+
+    if (record->financialLoss != -1.0f) {
+        fwrite(&record->financialLoss, sizeof(float), 1, file);
+    } else {
+        float sentinelValue = -1.0f;
+        fwrite(&sentinelValue, sizeof(float), 1, file);
+    }
+
+    char index = 1;
+    writeVariableArray(file, record->country, index++);
+    writeVariableArray(file, record->attackType, index++);
+    writeVariableArray(file, record->targetIndustry, index++);
+    writeVariableArray(file, record->defenseStrategy, index);
 }

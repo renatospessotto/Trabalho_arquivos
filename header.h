@@ -24,6 +24,7 @@ typedef struct {
 
 Header initializeAndWriteHeader(FILE *output);
 void updateHeader(FILE *output, Header *header);
+void readHeader(FILE *input, Header *header);
 
 
 #endif // HEADER_H

@@ -21,6 +21,7 @@ typedef struct {
 void printRecord(Record record);
 int readRecord(FILE *file, Record *record);
 void writeVariableArray(FILE *file, const char *array, char index);
-void readVariableArray(FILE *file, char *buffer, int expectedIndex);
+int readVariableArray(FILE *file, char *buffer, int expectedIndex);
+void writeRecord(FILE *file, const Record *record);
 
 #endif // RECORD_H
