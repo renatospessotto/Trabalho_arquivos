@@ -59,6 +59,7 @@ Header initializeAndWriteHeader(FILE *output) {
  * @param header Ponteiro para a estrutura de cabeçalho a ser atualizada.
  */
 void updateHeader(FILE *output, Header *header) {
+    long long currentPosition = ftell(output); // Salva a posição atual do ponteiro
     fseek(output, 0, SEEK_SET);
     header->status = '1'; // Arquivo consistente ao finalizar
     fwrite(&header->status, sizeof(char), 1, output);
@@ -66,6 +67,8 @@ void updateHeader(FILE *output, Header *header) {
     fwrite(&header->proxByteOffset, sizeof(long long), 1, output);
     fwrite(&header->nroRegArq, sizeof(int), 1, output);
     fwrite(&header->nroRegRem, sizeof(int), 1, output);
+    fseek(output, currentPosition, SEEK_SET); // Restaura a posição original do ponteiro
+
 }
 
 /**
@@ -77,11 +80,13 @@ void updateHeader(FILE *output, Header *header) {
  * @param header Ponteiro para a estrutura de cabeçalho a ser preenchida.
  */
 void readHeader(FILE *input, Header *header) {
-    fseek(input, 0, SEEK_SET);
+    long long currentPosition = ftell(input); // Salva a posição atual do ponteiro
+    fseek(input, 0, SEEK_SET); // Move para o início do arquivo
     fread(&header->status, sizeof(char), 1, input);
     fread(&header->topo, sizeof(long long), 1, input);
     fread(&header->proxByteOffset, sizeof(long long), 1, input);
     fread(&header->nroRegArq, sizeof(int), 1, input);
     fread(&header->nroRegRem, sizeof(int), 1, input);
+    fseek(input, currentPosition, SEEK_SET); // Restaura a posição original do ponteiro
 }
 

@@ -78,7 +78,7 @@ int main() {
             case 4: {
                 // Opção 4: Exclui registros com múltiplos critérios
                 scanf("%s", binaryFile);
-
+                int removed = 0; // Contador de registros removidos
                 int repeatCount;
                 scanf("%d", &repeatCount);
 
@@ -100,12 +100,14 @@ int main() {
                         }
                     }
 
-                    int removed = deleteRecordByCriteria(binaryFile, numCriteria, criteria, values);
-                    if (removed >= 0) {
-                        binarioNaTela(binaryFile);
-                    } else {
-                        printf("Falha ao remover registro(s).\n");
-                    }
+                    removed = deleteRecordByCriteria(binaryFile, numCriteria, criteria, values);
+                   
+                }
+
+                if (removed > 0) {
+                    binarioNaTela(binaryFile);
+                } else {
+                    printf("Falha ao remover registro(s).\n");
                 }
 
                 fflush(stdout);
@@ -215,7 +217,6 @@ int main() {
 
                 binarioNaTela(binaryFile);
 
-                fflush(stdout);
                 return 0;
                 break;
             }

@@ -277,6 +277,7 @@ int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteri
 
     // Declara e lê o cabeçalho
     Header header;
+    readHeader(file, &header);
 
     // Move o ponteiro para o byte 276 (início dos registros)
     if (fseek(file, 276, SEEK_SET) != 0) {
@@ -284,19 +285,18 @@ int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteri
         fclose(file);
         return -1;
     }
-
     Record record;
-    long long recordOffset, returnOffset;
+    long long recordOffset = -1; // Initialize recordOffset to a default value
     int removedCount = 0;
 
-    // Percorre todos os registros no arquivo
     while (readRecord(file, &record)) {
-        returnOffset = ftell(file);
         recordOffset = ftell(file) - (sizeof(char) + sizeof(int) + record.tamanhoRegistro);
-        readHeader(file, &header);
-        
+
         int matchCount = matchRecord(&record, numCriteria, criteria, values);
         if (matchCount == numCriteria && record.removido == '0') {
+            printRecord(record); // Imprime o registro encontrado
+
+            readHeader(file, &header); // Lê o cabeçalho e restaura o ponteiro automaticamente
             // Marca como removido
             record.removido = '1';
 
@@ -315,10 +315,6 @@ int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteri
             header.nroRegArq--;
 
             removedCount++;
-
-            updateHeader(file, &header);
-
-            fseek(file, returnOffset, SEEK_SET);
         }
 
         // Libera memória alocada dinamicamente
@@ -329,6 +325,7 @@ int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteri
     }
 
     // Atualiza o cabeçalho no início do arquivo
+    updateHeader(file, &header);
 
     fclose(file);
     return removedCount;
@@ -374,7 +371,7 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
     readHeader(file, &header);
 
     // Move o ponteiro para o byte 276 (início dos registros)
-    if (fseek(file, 275, SEEK_SET) != 0) {
+    if (fseek(file, 276, SEEK_SET) != 0) {
         printf("Falha ao posicionar o ponteiro no arquivo.\n");
         fclose(file);
         return -1;
@@ -517,7 +514,7 @@ int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char 
     readHeader(file, &header);
 
     // Move o ponteiro para o byte 276 (início dos registros)
-    if (fseek(file, 275, SEEK_SET) != 0) {
+    if (fseek(file, 276, SEEK_SET) != 0) {
         printf("Falha ao posicionar o ponteiro no arquivo.\n");
         fclose(file);
         return -1;
