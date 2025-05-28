@@ -170,26 +170,49 @@ int read_field(FILE *fp, char *dest) {
  * @return O byte offset do último nó da lista encadeada de removidos, ou -1 se a lista estiver vazia.
  */
 long find_last_removed(FILE *fp, long header_topo) {
-	long long current = header_topo;
+    long long current = header_topo;
+    int count = 0; // Counter to limit to 10 records
 
-	if (current == -1) return -1;
+    if (current == -1) return -1;
 
-	while (current != -1) {
-		char removido;
-		int tamanhoRegistro;
-		long long next;
-		int id;
+    while (current != -1 && count < 500) { // Limit to 10 records
 
-		fseek(fp, current, SEEK_SET);
-		fread(&removido, sizeof(char), 1, fp);
-		fread(&tamanhoRegistro, sizeof(int), 1, fp);
-		fread(&next, sizeof(long long), 1, fp);
-		fread(&id, sizeof(int), 1, fp);
-		printf("ID: %d\n", id);
-		if (next == -1) break;
-		current = next;
-	}
-	return current;
+        Record record;
+
+        // Move o ponteiro para a posição atual e lê o registro
+        fseek(fp, current, SEEK_SET);
+        if (!readRecord(fp, &record)) {
+            printf("Erro ao ler o registro.\n");
+        }
+        if (record.tamanhoRegistro < 64) {
+            // Avança para o próximo registro sem imprimir
+            current = record.prox;
+            count++;
+            continue;
+        }
+        long current_offset = ftell(fp);
+        printf("Byte offset atual: %ld\n", current_offset);
+        // Print fixed fields not covered by printRecord
+        printf("Removido: %c\n", record.removido);
+        printf("Tamanho Registro: %d\n", record.tamanhoRegistro);
+        printf("Próximo: %lld\n", record.prox);
+
+        // Use printRecord to print the rest of the record
+        printRecord(record);
+
+        // Libera memória alocada dinamicamente nos campos variáveis
+        free(record.country);
+        free(record.attackType);
+        free(record.targetIndustry);
+        free(record.defenseStrategy);
+
+        // Avança para o próximo registro na lista encadeada
+        if (record.prox == -1) break;
+        current = record.prox;
+        count++; // Increment the counter
+    }
+
+    return current;
 }
 
 

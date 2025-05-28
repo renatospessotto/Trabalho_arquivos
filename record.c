@@ -86,6 +86,9 @@ int readRecord(FILE *file, Record *record) {
         free(record->defenseStrategy);
         return 0; // Falha
     }
+    
+    long long pos = ftell(file);
+    fseek(file, pos, SEEK_SET);
 
     // Lê os campos variáveis do registro
     int index = 1;
@@ -101,6 +104,8 @@ int readRecord(FILE *file, Record *record) {
         return 0; // Falha
     }
 
+
+
     // Lê caracteres até encontrar um caractere diferente de '$'
     char c;
     while (fread(&c, sizeof(char), 1, file) == 1 && c == '$') {
@@ -113,6 +118,10 @@ int readRecord(FILE *file, Record *record) {
     
     return 1; // Sucesso
 }
+
+
+
+
 
 /**
  * @brief Escreve um array de tamanho variável em um arquivo binário.
@@ -140,6 +149,12 @@ void writeVariableArray(FILE *file, const char *array, char index) {
     fwrite("|", sizeof(char), 1, file);
 }
 
+
+
+
+
+
+
 /**
  * @brief Lê um array de tamanho variável de um arquivo binário.
  *
@@ -157,15 +172,32 @@ int readVariableArray(FILE *file, char *buffer, int expectedIndex) {
     // Salva a posição inicial no arquivo
     long long initialPosition = ftell(file);
 
-    // Lê o índice do campo e verifica se corresponde ao esperado
-    if (fread(&index, sizeof(char), 1, file) != 1 || (index - '0') != expectedIndex) {
+    // Lê o índice do campo
+    if (fread(&index, sizeof(char), 1, file) != 1) {
+        buffer[0] = '\0';
+        fseek(file, initialPosition, SEEK_SET);
+        return 0;
+    }
+
+    // Verifica se o índice é '$', indicando que o registro acabou
+    if (index == '$') {
         buffer[0] = '\0'; // Define o buffer como vazio
-        fseek(file, initialPosition, SEEK_SET); // Retorna à posição inicial
-        return 0; // Falha
+        fseek(file, -1, SEEK_CUR); // Volta 1 byte para reposicionar o ponteiro
+        return 1; // Sucesso, mas registro acabou
+    }
+
+    // Verifica se o índice corresponde ao esperado
+    if ((index - '0') != expectedIndex) {
+        buffer[0] = '\0';
+        fseek(file, initialPosition, SEEK_SET);
+        return 1;
     }
 
     // Lê os caracteres do campo até encontrar o delimitador '|'
-    while (fread(&c, sizeof(char), 1, file) == 1 && c != '|') {
+    while (fread(&c, sizeof(char), 1, file) == 1) {
+        if (c == '|') {
+            break; // Finaliza a leitura ao encontrar o delimitador '|'
+        }
         buffer[i++] = c;
     }
 

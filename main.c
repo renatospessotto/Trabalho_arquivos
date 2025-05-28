@@ -104,7 +104,7 @@ int main() {
                    
                 }
 
-                if (removed > 0) {
+                if (removed >= 0) {
                     binarioNaTela(binaryFile);
                 } else {
                     printf("Falha ao remover registro(s).\n");
@@ -242,13 +242,29 @@ int main() {
                     printf("Nenhum registro removido encontrado.\n");
                 }
 
-                fclose(file);
+                fclose(file); // Ensure the file is closed before returning
                 return 0;
                 break;
             }
 
-            case 8:
-                // Opção 8: Encerra o programa
+            case 8: {
+                // Opção 8: Lê e imprime um registro a partir de um offset
+                char binaryFile[100];
+                long long offset;
+
+                // Lê o nome do arquivo binário e o offset
+                scanf("%s", binaryFile);
+                scanf("%lld", &offset);
+
+                // Chama a função para imprimir o registro
+                printRecordFromOffset(binaryFile, offset);
+
+                return 0;
+                break;
+            }
+
+            case 9:
+                // Opção 9: Encerra o programa
                 return 0;
                 break;
 
@@ -258,7 +274,7 @@ int main() {
                 fflush(stdout); // Garante que a saída seja exibida imediatamente
                 return 0; // Encerra o programa
         }
-    } while (option != 8);
+    } while (option != 9);
 
     return 0;
 }
