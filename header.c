@@ -60,15 +60,30 @@ Header initializeAndWriteHeader(FILE *output) {
  */
 void updateHeader(FILE *output, Header *header) {
     long long currentPosition = ftell(output); // Salva a posição atual do ponteiro
+    
+    // Vai para o início do arquivo e atualiza campo por campo
     fseek(output, 0, SEEK_SET);
     header->status = '1'; // Arquivo consistente ao finalizar
     fwrite(&header->status, sizeof(char), 1, output);
+    
+    // Atualiza o topo (posição 1)
+    fseek(output, 1, SEEK_SET);
     fwrite(&header->topo, sizeof(long long), 1, output);
+    
+    // Atualiza o proxByteOffset (posição 9)
+    fseek(output, 9, SEEK_SET);
     fwrite(&header->proxByteOffset, sizeof(long long), 1, output);
+    
+    // Atualiza o nroRegArq (posição 17)
+    fseek(output, 17, SEEK_SET);
     fwrite(&header->nroRegArq, sizeof(int), 1, output);
+    
+    // Atualiza o nroRegRem (posição 21)
+    fseek(output, 21, SEEK_SET);
     fwrite(&header->nroRegRem, sizeof(int), 1, output);
+    
+    fflush(output); // Força a escrita no arquivo
     fseek(output, currentPosition, SEEK_SET); // Restaura a posição original do ponteiro
-
 }
 
 /**

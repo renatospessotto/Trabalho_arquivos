@@ -1,4 +1,5 @@
 #include "binary_operations.h"
+#include "arvore-b.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h> 
@@ -138,8 +139,6 @@ int generateBinaryFile(const char *inputFile, char *binaryFile) {
 }
 
 
-
-
 /**
  * @brief Imprime todos os registros de um arquivo binário até encontrar um ID específico.
  *
@@ -174,8 +173,8 @@ void printAllUntilId(const char *binaryFile) {
     int found = 0; // Flag para verificar se algum registro foi encontrado
     // Percorre o arquivo sequencialmente
     while (readRecord(file, &record)) {
-
-        if (record.removido == '0') {
+        
+        if (record.removido == '0') { 
             printRecord(record);
             found = 1; // Marca que pelo menos um registro foi encontrado
         }
@@ -234,8 +233,6 @@ void sequentialSearch(const char *binaryFile, int numCriteria, char criteria[3][
     while (readRecord(file, &record)) {
         int matchCount = matchRecord(&record, numCriteria, criteria, values);
         if (matchCount == numCriteria && record.removido == '0') {
-            printf("tamanhoRegistro: %d\n", record.tamanhoRegistro);
-            printf("prox: %lld\n", record.prox);
             printRecord(record);
             found = 1;
         }
@@ -363,9 +360,9 @@ int deleteRecordByCriteria(const char *binaryFile, int numCriteria, char criteri
  * @param attackType Tipo de ataque.
  * @param targetIndustry Setor alvo do ataque.
  * @param defenseStrategy Estratégia de defesa utilizada.
- * @return 0 em caso de sucesso, -1 em caso de falha.
+ * @return Byte offset onde o registro foi inserido, -1 em caso de falha.
  */
-int insertRecord(const char *binaryFile, int id, int year, float financialLoss, const char *country, const char *attackType, const char *targetIndustry, const char *defenseStrategy) {
+long long insertRecord(const char *binaryFile, int id, int year, float financialLoss, const char *country, const char *attackType, const char *targetIndustry, const char *defenseStrategy) {
     FILE *file = fopen(binaryFile, "rb+");
     if (!file) {
         printf("Falha no processamento do arquivo.\n");
@@ -375,14 +372,12 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
     // Verifica se o primeiro byte do arquivo é "1"
     char status;
     if (fread(&status, sizeof(char), 1, file) != 1 || status != '1') {
-        printf("Falha no processamento do arquivo.\n");
         fclose(file);
         return -1;
     }
 
     // Move o ponteiro para o byte 276 (início dos registros)
     if (fseek(file, 275, SEEK_SET) != 0) {
-        printf("Falha ao posicionar o ponteiro no arquivo.\n");
         fclose(file);
         return -1;
     }
@@ -399,10 +394,12 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
     record.defenseStrategy = defenseStrategy ? strdup(defenseStrategy) : NULL;
     record.prox = -1;
 
+
     // Calcula tamanho do registro novo
     int novoTamanhoRegistro = calculateRecordSize(&record);
 
-    if (country == NULL || strlen(country) == 0) {
+
+     if (country == NULL || strlen(country) == 0) {
         novoTamanhoRegistro -= 2;
     }
     if (attackType == NULL || strlen(attackType) == 0) {
@@ -416,17 +413,18 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
     }
 
 
+
     // Declara e lê o cabeçalho
     Header header;
     readHeader(file, &header);
-
 
     // Estratégia First Fit: procura espaço removido suficiente
     long long prevOffset = -1, currOffset = header.topo, foundOffset = -1;
     int found = 0;
     int fillBytes = 0; // Variável para armazenar o número de bytes de lixo
 
-    int tamanhoRegistro = 0; // Tamanho do registro a ser inserido
+    int tamanhoRegistro = 0;
+
 
     while (currOffset != -1) {
         Record test; // Declare a Record structure to hold the current record
@@ -437,12 +435,14 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
             break;
         }
 
+
         // Check if the space is sufficient
         if (test.tamanhoRegistro >= novoTamanhoRegistro) {
             found = 1;
             foundOffset = currOffset;
             fillBytes = test.tamanhoRegistro - novoTamanhoRegistro;
             tamanhoRegistro = test.tamanhoRegistro;
+
 
             // Update the 'prox' of the previous offset to point to the 'prox' of the current offset
             if (prevOffset != -1) {
@@ -466,9 +466,12 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
         free(test.defenseStrategy);
     }
 
+    long long insertedOffset = -1;
+
     if (found) {
-        record.tamanhoRegistro = tamanhoRegistro; // Use novoTamanhoRegistro for consistency
+        record.tamanhoRegistro = tamanhoRegistro;
         // Reutiliza espaço removido
+        insertedOffset = foundOffset;
         fseek(file, foundOffset, SEEK_SET);
         writeRecord(file, &record);
 
@@ -481,15 +484,21 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
         header.nroRegArq++;
         header.nroRegRem--;
     } else {
-        record.tamanhoRegistro = tamanhoRegistro;
-        // Insere no final do arquivo
+        record.tamanhoRegistro = novoTamanhoRegistro;
+        // Insere no final do arquivo - vai para o final real
         fseek(file, 0, SEEK_END);
+        insertedOffset = ftell(file);
         writeRecord(file, &record);
         header.nroRegArq++;
+
+        // Atualiza o proxByteOffset para o próximo byte disponível (final real do arquivo)
+        fseek(file, 0, SEEK_END);
         header.proxByteOffset = ftell(file);
     }
 
-    // Atualiza o cabeçalho no início do arquivo
+
+
+    // Atualiza o resto do cabeçalho normalmente
     updateHeader(file, &header);
 
     free(record.country);
@@ -498,7 +507,7 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
     free(record.defenseStrategy);
 
     fclose(file);
-    return 0;
+    return insertedOffset;
 }
 
 
@@ -520,7 +529,7 @@ int insertRecord(const char *binaryFile, int id, int year, float financialLoss, 
  * @param updateValues Array com os novos valores para os campos.
  * @return Número de registros atualizados, -1 em caso de falha.
  */
-int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char criteria[3][256], char values[3][256], int numUpdatesFields, char updateFields[3][256], char updateValues[3][256]) {
+int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char criteria[3][256], char values[3][256], int numUpdatesFields, char updateFields[3][256], char updateValues[3][256], const char *btreeFile, int useBTree) {
     FILE *file = fopen(binaryFile, "rb+");
     if (!file) {
         printf("Falha no processamento do arquivo.\n");
@@ -535,12 +544,11 @@ int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char 
         return -1;
     }
 
-    // Declara e lê o cabeçalho
+    // Declara o cabeçalho
     Header header;
-    readHeader(file, &header);
 
     // Move o ponteiro para o byte 276 (início dos registros)
-    if (fseek(file, 275, SEEK_SET) != 0) {
+    if (fseek(file, 276, SEEK_SET) != 0) {
         printf("Falha ao posicionar o ponteiro no arquivo.\n");
         fclose(file);
         return -1;
@@ -549,13 +557,22 @@ int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char 
     int updatedCount = 0;
     Record record;
 
-    while (readRecord(file, &record)) {
-        long long recordOffset = ftell(file) - (sizeof(char) + sizeof(int) + record.tamanhoRegistro);
+    while (1) {
+        // Captura o offset ANTES de ler o registro
+        long long recordOffset = ftell(file);
+        
+        // Tenta ler o registro
+        if (!readRecord(file, &record)) {
+            break; // Fim do arquivo
+        }
 
         int matchCount = matchRecord(&record, numCriteria, criteria, values);
 
         if (matchCount == numCriteria && record.removido == '0') {
+            readHeader(file, &header);
+
             Record updated = record;
+
             updated.country = record.country ? strdup(record.country) : NULL;
             updated.attackType = record.attackType ? strdup(record.attackType) : NULL;
             updated.targetIndustry = record.targetIndustry ? strdup(record.targetIndustry) : NULL;
@@ -621,28 +638,47 @@ int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char 
                         fillWithTrash(file, fillBytes);
                     }
                 } else {
-                    printf("Registro atualizado com tamanho maior que o original. Reutilizando espaço removido.\n");
+                    // Registro será realocado - salva o ID e o offset do registro antigo
+                    int recordID = updated.id;
+                    long long oldRecordOffset = recordOffset; // Salva o offset do registro antigo ANTES de chamar insertRecord
 
+                    // Lê o header atual antes da inserção para verificar onde será inserido
+                    readHeader(file, &header);
+                    long long currentEndOfFile = header.proxByteOffset;
+                    
+                    // Insere o registro e obtém o novo offset diretamente
+                    long long newOffset = insertRecord(binaryFile, updated.id, updated.year, updated.financialLoss, updated.country, updated.attackType, updated.targetIndustry, updated.defenseStrategy);
+                    
+                    readHeader(file, &header);
 
-                    insertRecord(binaryFile, updated.id, updated.year, updated.financialLoss, updated.country, updated.attackType, updated.targetIndustry, updated.defenseStrategy);
-
-                    recordOffset +=1;
+                    // Se estamos usando B-tree (case 11), precisa atualizar o offset no índice
+                    if (useBTree && btreeFile && newOffset != -1) {
+                        FILE *btreeFilePtr = fopen(btreeFile, "rb+");
+                        if (btreeFilePtr) {
+                            // Atualiza diretamente o offset da chave existente
+                            btree_update_offset(btreeFilePtr, recordID, newOffset);
+                            fclose(btreeFilePtr);
+                        }
+                    }
 
                     record.removido = '1';
                     // Atualiza o campo prox do registro removido para apontar para o antigo topo
                     long long novoProx = header.topo;
-                    header.topo = recordOffset;
+                    header.topo = oldRecordOffset; // Usa o offset salvo antes da chamada insertRecord
 
                     // Atualiza o registro removido no arquivo
-                    fseek(file, recordOffset, SEEK_SET);
+                    fseek(file, oldRecordOffset, SEEK_SET);
                     fwrite(&record.removido, sizeof(char), 1, file);
                     fseek(file, sizeof(int), SEEK_CUR); // pula tamanhoRegistro
                     fwrite(&novoProx, sizeof(long long), 1, file);
 
-                    // Atualiza contadores de removidos e ativos
+                    // Atualiza contadores de removidos
                     header.nroRegRem++;
-                    header.nroRegArq--;
 
+                    header.nroRegArq--;
+                    //if (newOffset < currentEndOfFile) {
+                    //   header.nroRegArq--;
+                    //}
 
                     updateHeader(file, &header);
 
@@ -664,7 +700,6 @@ int updateRecords(const char *binaryFile, int numUpdates, int numCriteria, char 
         free(record.defenseStrategy);
     }
 
-    updateHeader(file, &header);
     fclose(file);
     return updatedCount;
 }

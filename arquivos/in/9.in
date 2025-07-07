@@ -1,6 +1,5 @@
-3 ataque9.bin 5
-1 idAttack 1
-2 country "CHINA" targetIndustry "RETAIL"
-3 country "BRAZIL" defenseMechanism "VPN" year 2024
-2 financialLoss 43.4 country "BRAZIL"
-1 attackType "MAN-IN-THE-MIDDLE"
+11 ataques9.bin indiceAtaques9.bin 2
+1 idAttack 1024
+2 country "UK" targetIndustry "EDUCATION"
+3 year 2024 targetIndustry "EDUCATION" attackType "PHISHING"
+2 country "UK" defenseMechanism "VPN" financial_loss 884150.00

@@ -1,4 +1,5 @@
 #include "utils.h"
+#include "arvore-b.h"
 #include <stdlib.h>
 #include <ctype.h> // Added to fix isspace warning
 #include <string.h>
